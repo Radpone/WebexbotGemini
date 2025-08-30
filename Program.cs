@@ -25,6 +25,7 @@ app.MapGet("/health", () => Results.Ok("Service is healthy!"));
 string? webhookSecret = Environment.GetEnvironmentVariable("WEBEX_SECRET");
 string? botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN");
 string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
+string? botPersonId = Environment.GetEnvironmentVariable("WEBEX_BOT_ID");
 
 var gemini = new GeminiService(googleApiKey!);
 
