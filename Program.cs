@@ -2,12 +2,18 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using YourProjectNamespace.Services;  // 引用 GeminiService 所在的命名空間
+//using YourProjectNamespace.Services;  // 引用 GeminiService 所在的命名空間
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 註冊 GeminiService
-builder.Services.AddSingleton<GeminiService>(sp =>
+//builder.Services.AddSingleton<GeminiService>(sp =>
+//{
+//    var googleApiKey = builder.Configuration["GOOGLE_API_KEY"];
+//    return new GeminiService(googleApiKey);
+//});
+
+bbuilder.Services.AddSingleton<GeminiService>(sp =>
 {
     var googleApiKey = builder.Configuration["GOOGLE_API_KEY"];
     return new GeminiService(googleApiKey);
