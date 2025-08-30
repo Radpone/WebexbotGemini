@@ -50,19 +50,7 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
         var bodyBytes = ms.ToArray();
         req.Body.Position = 0;
 
-        //// 取得簽名並進行驗證
-        //var signature = req.Headers["X-Spark-Signature"].FirstOrDefault()
-        //             ?? req.Headers["X-Webex-Signature"].FirstOrDefault();
-
-        //Console.WriteLine("Received Signature: " + signature);
-
-        //if (string.IsNullOrEmpty(signature) || !VerifySignature(bodyBytes, webhookSecret!, signature))
-        //{
-        //    Console.WriteLine("Invalid signature");
-        //    return Results.BadRequest("Invalid signature");
-        //}
-
-        Console.WriteLine("No signature to validate.");
+      Console.WriteLine("No signature to validate.");
 
         // 解析 JSON
         var json = Encoding.UTF8.GetString(bodyBytes);
@@ -78,8 +66,16 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
             var data = payload?["data"];
             var roomId = data?["roomId"]?.ToString();
             var messageId = data?["id"]?.ToString();
+            var senderId = data?["personId"]?.ToString(); // 取得發送者ID
 
-            Console.WriteLine($"RoomId: {roomId}, MessageId: {messageId}");
+            Console.WriteLine($"RoomId: {roomId}, MessageId: {messageId}, SenderId: {senderId}");
+
+            // 檢查是否來自 Bot 發送的訊息，避免回覆自己的訊息
+            if (senderId == botPersonId)
+            {
+                Console.WriteLine("Message is from the bot itself. Ignoring.");
+                return Results.Ok();
+            }
 
             if (!string.IsNullOrEmpty(roomId) && !string.IsNullOrEmpty(messageId))
             {
