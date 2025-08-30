@@ -91,7 +91,8 @@ app.MapPost("/webhook", async (HttpRequest req) =>
     catch (Exception ex)
     {
         Console.WriteLine("Error: " + ex.Message);
-        return Results.StatusCode(500, "Internal Server Error");
+        // 使用 Results.Problem() 返回錯誤結果
+        return Results.Problem("Internal Server Error", statusCode: 500);
     }
 });
 
