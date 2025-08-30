@@ -5,10 +5,6 @@ WORKDIR /app
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# 設定 NuGet 套件來源
-RUN dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
-
-
 COPY . .
 RUN dotnet restore
 RUN dotnet publish -c Release -o /app/publish
