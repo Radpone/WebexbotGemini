@@ -7,10 +7,13 @@ var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 //Bot access token OWZmN2RhYTgtOTc5Ny00ZjUwLWE0ZmUtMDY2YWZiNDQ1OWM0NjQ3MGY5ZTYtN2Q0_P0A1_ff5a73e5-7bfa-4755-baa7-dccc81871204
 //Bot ID Y2lzY29zcGFyazovL3VzL0FQUExJQ0FUSU9OLzdmZjgxMmQwLTYzYWItNDE2Yy1iYmNhLWQ2ZDdlNjEwYmQxYg
+// render https://webexbotgemini.onrender.com
+//webhook secret MTgzN2ZkODktMjAyZS00NmM1LTk3NjItZDA4Y2VkZjMxM2Y0YWY4NzlkNzMtZTRi_P0A1_ff5a73e5-7bfa-4755-baa7-dccc81871204
 
-string? webhookSecret = Environment.GetEnvironmentVariable("WEBEX_WEBHOOK_SECRET");
-string? botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN");
-string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
+
+string? webhookSecret = Environment.GetEnvironmentVariable("MTgzN2ZkODktMjAyZS00NmM1LTk3NjItZDA4Y2VkZjMxM2Y0YWY4NzlkNzMtZTRi_P0A1_ff5a73e5-7bfa-4755-baa7-dccc81871204");
+string? botToken = Environment.GetEnvironmentVariable("OWZmN2RhYTgtOTc5Ny00ZjUwLWE0ZmUtMDY2YWZiNDQ1OWM0NjQ3MGY5ZTYtN2Q0_P0A1_ff5a73e5-7bfa-4755-baa7-dccc81871204");
+string? googleApiKey = Environment.GetEnvironmentVariable("AIzaSyBP5KMO662v-HRKMvDbNIiQ8CUzeIms6ck");
 
 var gemini = new GeminiService(googleApiKey!);
 
