@@ -4,11 +4,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Net.Http.Headers;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
 // 註冊 GeminiService
-
 builder.Services.AddSingleton<GeminiService>(sp =>
 {
     var googleApiKey = builder.Configuration["GOOGLE_API_KEY"];
@@ -27,6 +25,7 @@ app.MapGet("/health", () => Results.Ok("Service is healthy!"));
 string? webhookSecret = Environment.GetEnvironmentVariable("WEBEX_SECRET");
 string? botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN");
 string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
+
 // 在代碼的適當位置獲取 botPersonId
 string botPersonId = await GetBotPersonId(botToken!);
 
@@ -46,7 +45,6 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
             Console.WriteLine($"{header.Key}: {string.Join(", ", header.Value)}");
         }
 
-
         // 讀取請求內容
         req.EnableBuffering();
         using var ms = new MemoryStream();
@@ -54,7 +52,7 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
         var bodyBytes = ms.ToArray();
         req.Body.Position = 0;
 
-      Console.WriteLine("No signature to validate.");
+        Console.WriteLine("No signature to validate.");
 
         // 解析 JSON
         var json = Encoding.UTF8.GetString(bodyBytes);
@@ -130,6 +128,7 @@ static bool VerifySignature(byte[] body, string secret, string signature)
 
     return computedHex == signature.ToLowerInvariant();
 }
+
 // 取得 Webex 訊息
 static async Task<string?> GetWebexMessage(string botToken, string messageId)
 {
@@ -163,6 +162,7 @@ static async Task SendWebexMessage(string botToken, string roomId, string text)
         Console.WriteLine($"Message sent successfully to room: {roomId}");
     }
 }
+
 static async Task<string> GetBotPersonId(string botToken)
 {
     using var client = new HttpClient();
