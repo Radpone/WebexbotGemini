@@ -86,10 +86,9 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
 
                 if (!string.IsNullOrEmpty(userMsg))
                 {
-                    Console.WriteLine($"User message: {userMsg}");
-                    // 呼叫 Gemini 生成回覆
+                    Console.WriteLine($"Sending to Gemini: {userMsg}");  // 在發送訊息給 Gemini 之前打印出訊息
                     var reply = await gemini.GenerateAsync(userMsg);
-                    Console.WriteLine($"Gemini reply: {reply}");
+                    Console.WriteLine($"Received from Gemini: {reply}");  // 打印從 Gemini 收到的回應
                     await SendWebexMessage(botToken!, roomId, reply);
                 }
                 else
