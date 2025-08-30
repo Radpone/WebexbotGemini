@@ -97,14 +97,6 @@ app.MapPost("/webhook", async (HttpRequest req) =>
 
 app.Run();
 
-static bool VerifySignature(byte[] body, string secret, string signature)
-{
-    using var hmac = new HMACSHA1(Encoding.UTF8.GetBytes(secret));
-    var computed = hmac.ComputeHash(body);
-    var computedHex = BitConverter.ToString(computed).Replace("-", "").ToLowerInvariant();
-    return computedHex == signature.ToLowerInvariant();
-}
-
 // 簽名驗證
 static bool VerifySignature(byte[] body, string secret, string signature)
 {
