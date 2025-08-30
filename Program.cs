@@ -113,7 +113,11 @@ static bool VerifySignature(byte[] body, string secret, string signature)
     using var hmac = new HMACSHA1(Encoding.UTF8.GetBytes(secret));
     var computed = hmac.ComputeHash(body);
     var computedHex = BitConverter.ToString(computed).Replace("-", "").ToLowerInvariant();
+
+    // 輸出計算出來的簽名與收到的簽名
     Console.WriteLine($"Computed Signature: {computedHex}");
+    Console.WriteLine($"Received Signature: {signature}");
+
     return computedHex == signature.ToLowerInvariant();
 }
 // 取得 Webex 訊息
