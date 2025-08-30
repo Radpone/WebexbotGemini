@@ -2,16 +2,10 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-//using YourProjectNamespace.Services;  // 引用 GeminiService 所在的命名空間
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 註冊 GeminiService
-//builder.Services.AddSingleton<GeminiService>(sp =>
-//{
-//    var googleApiKey = builder.Configuration["GOOGLE_API_KEY"];
-//    return new GeminiService(googleApiKey);
-//});
 
 builder.Services.AddSingleton<GeminiService>(sp =>
 {
@@ -40,6 +34,14 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
     try
     {
         Console.WriteLine("Webhook received!");
+
+        // 打印請求頭部，幫助調試
+        Console.WriteLine("Request Headers:");
+        foreach (var header in req.Headers)
+        {
+            Console.WriteLine($"{header.Key}: {string.Join(", ", header.Value)}");
+        }
+
 
         // 讀取請求內容
         req.EnableBuffering();
