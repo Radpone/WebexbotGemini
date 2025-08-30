@@ -13,7 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 //    return new GeminiService(googleApiKey);
 //});
 
-bbuilder.Services.AddSingleton<GeminiService>(sp =>
+builder.Services.AddSingleton<GeminiService>(sp =>
 {
     var googleApiKey = builder.Configuration["GOOGLE_API_KEY"];
     return new GeminiService(googleApiKey);
