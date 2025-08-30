@@ -25,7 +25,8 @@ app.MapGet("/health", () => Results.Ok("Service is healthy!"));
 string? webhookSecret = Environment.GetEnvironmentVariable("WEBEX_SECRET");
 string? botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN");
 string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
-string? botPersonId = Environment.GetEnvironmentVariable("WEBEX_BOT_ID");
+// 在代碼的適當位置獲取 botPersonId
+string botPersonId = await GetBotPersonId(botToken!);
 
 var gemini = new GeminiService(googleApiKey!);
 
@@ -159,4 +160,20 @@ static async Task SendWebexMessage(string botToken, string roomId, string text)
     {
         Console.WriteLine($"Message sent successfully to room: {roomId}");
     }
+}
+static async Task<string> GetBotPersonId(string botToken)
+{
+    using var client = new HttpClient();
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", botToken);
+    var resp = await client.GetAsync("https://webexapis.com/v1/people/me");
+
+    if (!resp.IsSuccessStatusCode)
+    {
+        Console.WriteLine($"Error getting bot personId: {resp.StatusCode}");
+        return string.Empty;
+    }
+
+    var json = await resp.Content.ReadAsStringAsync();
+    var node = JsonNode.Parse(json);
+    return node?["id"]?.ToString() ?? string.Empty;
 }
