@@ -5,12 +5,19 @@ using System.Text.Json.Nodes;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
+
+// 綁定 Render 提供的 PORT（預設 8080）
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+app.Urls.Add($"http://0.0.0.0:{port}");
+
+
 string? webhookSecret = Environment.GetEnvironmentVariable("WEBEX_SECRET");
 string? botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN");
 string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
 
 var gemini = new GeminiService(googleApiKey!);
 
+// Webhook 路由
 app.MapPost("/webhook", async (HttpRequest req) =>
 {
     req.EnableBuffering();
