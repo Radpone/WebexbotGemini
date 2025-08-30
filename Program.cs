@@ -50,17 +50,19 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
         var bodyBytes = ms.ToArray();
         req.Body.Position = 0;
 
-        // 取得簽名並進行驗證
-        var signature = req.Headers["X-Spark-Signature"].FirstOrDefault()
-                     ?? req.Headers["X-Webex-Signature"].FirstOrDefault();
+        //// 取得簽名並進行驗證
+        //var signature = req.Headers["X-Spark-Signature"].FirstOrDefault()
+        //             ?? req.Headers["X-Webex-Signature"].FirstOrDefault();
 
-        Console.WriteLine("Received Signature: " + signature);
+        //Console.WriteLine("Received Signature: " + signature);
 
-        if (string.IsNullOrEmpty(signature) || !VerifySignature(bodyBytes, webhookSecret!, signature))
-        {
-            Console.WriteLine("Invalid signature");
-            return Results.BadRequest("Invalid signature");
-        }
+        //if (string.IsNullOrEmpty(signature) || !VerifySignature(bodyBytes, webhookSecret!, signature))
+        //{
+        //    Console.WriteLine("Invalid signature");
+        //    return Results.BadRequest("Invalid signature");
+        //}
+
+        Console.WriteLine("No signature to validate.");
 
         // 解析 JSON
         var json = Encoding.UTF8.GetString(bodyBytes);
