@@ -2,8 +2,17 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using YourProjectNamespace.Services;  // 引用 GeminiService 所在的命名空間
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 註冊 GeminiService
+builder.Services.AddSingleton<GeminiService>(sp =>
+{
+    var googleApiKey = builder.Configuration["GOOGLE_API_KEY"];
+    return new GeminiService(googleApiKey);
+});
+
 var app = builder.Build();
 
 // 綁定 Render 提供的 PORT（預設 8080）
@@ -20,7 +29,7 @@ string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
 var gemini = new GeminiService(googleApiKey!);
 
 // Webhook 路由
-app.MapPost("/webhook", async (HttpRequest req) =>
+app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
 {
     try
     {
