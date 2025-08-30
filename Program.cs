@@ -5,6 +5,8 @@ using System.Text.Json.Nodes;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
+//Bot access token OWZmN2RhYTgtOTc5Ny00ZjUwLWE0ZmUtMDY2YWZiNDQ1OWM0NjQ3MGY5ZTYtN2Q0_P0A1_ff5a73e5-7bfa-4755-baa7-dccc81871204
+//Bot ID Y2lzY29zcGFyazovL3VzL0FQUExJQ0FUSU9OLzdmZjgxMmQwLTYzYWItNDE2Yy1iYmNhLWQ2ZDdlNjEwYmQxYg
 
 string? webhookSecret = Environment.GetEnvironmentVariable("WEBEX_WEBHOOK_SECRET");
 string? botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN");
