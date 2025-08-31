@@ -6,10 +6,18 @@ using System.Net.Http.Headers;
 
 var builder = WebApplication.CreateBuilder(args);
 
+string? webhookSecret = Environment.GetEnvironmentVariable("WEBEX_SECRET");
+string? botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN");
+string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
+
+
 // 註冊 GeminiService
 builder.Services.AddSingleton<GeminiService>(sp =>
 {
-    var googleApiKey = builder.Configuration["GOOGLE_API_KEY"];
+    if (string.IsNullOrEmpty(googleApiKey))
+    {
+        throw new InvalidOperationException("Missing GOOGLE_API_KEY environment variable.");
+    }
     return new GeminiService(googleApiKey);
 });
 
@@ -22,14 +30,10 @@ app.Urls.Add($"http://0.0.0.0:{port}");
 // 健康檢查路由
 app.MapGet("/health", () => Results.Ok("Service is healthy!"));
 
-string? webhookSecret = Environment.GetEnvironmentVariable("WEBEX_SECRET");
-string? botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN");
-string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
-
 // 在代碼的適當位置獲取 botPersonId
 string botPersonId = await GetBotPersonId(botToken!);
 
-var gemini = new GeminiService(googleApiKey!);
+//var gemini = new GeminiService(googleApiKey!);
 
 // Webhook 路由
 app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
