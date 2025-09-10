@@ -28,8 +28,10 @@ public class GeminiService
             };
 
             Console.WriteLine("Request Body: " + JsonSerializer.Serialize(body));
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={_apiKey}";
 
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={_apiKey}";
+            //var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={_apiKey}";
+
             var resp = await _client.PostAsJsonAsync(url, body);
 
             if (!resp.IsSuccessStatusCode)
