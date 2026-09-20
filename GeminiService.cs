@@ -1,72 +1,71 @@
-﻿using System.Net.Http;
+using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using System.Text;  
-using System.Net.Http.Headers;  
-
 
 public class GeminiService
 {
+    private const string BaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/";
+    private const string Model = "gemini-3.8-flash"; // 🔥 最新版本
     private readonly string _apiKey;
-    private readonly HttpClient _client;
+    private static readonly HttpClient _client = new HttpClient();
 
     public GeminiService(string apiKey)
     {
         _apiKey = apiKey;
-        _client = new HttpClient();
     }
-public async Task<string> GenerateAsync(string prompt)
-{
-    try
+
+    public async Task<string> GenerateAsync(string prompt)
     {
-        var body = new
+        try
         {
-            model = "gemini-2.5-flash",
-            contents = new[]
+            var body = new
             {
-                new { parts = new[] { new { text = prompt } } }
-            }
-        };
-
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={_apiKey}";
-        var json = JsonSerializer.Serialize(body);
-        var resp = await _client.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
-
-        if (!resp.IsSuccessStatusCode)
-        {
-            var errorResponse = await resp.Content.ReadAsStringAsync();
-            Console.WriteLine($"Error {resp.StatusCode}: {errorResponse}");
-            return "(error response)";
-        }
-
-        var responseJson = await resp.Content.ReadAsStringAsync();
-        Console.WriteLine("API Response: " + responseJson);
-
-        using var doc = JsonDocument.Parse(responseJson);
-        if (doc.RootElement.TryGetProperty("candidates", out var candidates))
-        {
-            foreach (var candidate in candidates.EnumerateArray())
-            {
-                if (candidate.TryGetProperty("content", out var content) &&
-                    content.TryGetProperty("parts", out var parts))
+                model = Model,
+                contents = new[]
                 {
-                    foreach (var part in parts.EnumerateArray())
+                    new { parts = new[] { new { text = prompt } } }
+                }
+            };
+
+            var url = $"{BaseUrl}{Model}:generateContent?key={_apiKey}";
+            var json = JsonSerializer.Serialize(body);
+            var resp = await _client.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var errorResponse = await resp.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error {resp.StatusCode}: {errorResponse}");
+                return "(error response)";
+            }
+
+            var responseJson = await resp.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(responseJson);
+
+            if (doc.RootElement.TryGetProperty("candidates", out var candidates))
+            {
+                foreach (var candidate in candidates.EnumerateArray())
+                {
+                    if (candidate.TryGetProperty("content", out var content) &&
+                        content.TryGetProperty("parts", out var parts))
                     {
-                        if (part.TryGetProperty("text", out var text))
+                        foreach (var part in parts.EnumerateArray())
                         {
-                            return text.GetString() ?? "(empty)";
+                            if (part.TryGetProperty("text", out var text))
+                            {
+                                return text.GetString() ?? "(empty)";
+                            }
                         }
                     }
                 }
             }
-        }
 
-        return "(no response)";
+            return "(no response)";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception: {ex.Message}\n{ex.StackTrace}");
+            return "(exception occurred)";
+        }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Exception: {ex.Message}\n{ex.StackTrace}");
-        return "(exception occurred)";
-    }
-}
 }
