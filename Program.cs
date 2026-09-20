@@ -10,7 +10,6 @@ string? webhookSecret = Environment.GetEnvironmentVariable("WEBEX_SECRET");
 string? botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN");
 string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
 
-
 // 註冊 GeminiService
 builder.Services.AddSingleton<GeminiService>(sp =>
 {
@@ -30,80 +29,42 @@ app.Urls.Add($"http://0.0.0.0:{port}");
 // 健康檢查路由
 app.MapGet("/health", () => Results.Ok("Service is healthy!"));
 
-// 在代碼的適當位置獲取 botPersonId
+// 取得 Bot 自己的 personId
 string botPersonId = await GetBotPersonId(botToken!);
-
-//var gemini = new GeminiService(googleApiKey!);
 
 // Webhook 路由
 app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
 {
     try
     {
-        Console.WriteLine("Webhook received!");
-
-        // 打印請求頭部，幫助調試
-        Console.WriteLine("Request Headers:");
-        foreach (var header in req.Headers)
-        {
-            Console.WriteLine($"{header.Key}: {string.Join(", ", header.Value)}");
-        }
-
-        // 讀取請求內容
         req.EnableBuffering();
         using var ms = new MemoryStream();
         await req.Body.CopyToAsync(ms);
         var bodyBytes = ms.ToArray();
         req.Body.Position = 0;
 
-        Console.WriteLine("No signature to validate.");
-
-        // 解析 JSON
         var json = Encoding.UTF8.GetString(bodyBytes);
-        Console.WriteLine("Received JSON: " + json);
         var payload = JsonNode.Parse(json);
 
-        // 檢查 resource 和消息內容
         var resource = payload?["resource"]?.ToString();
-        Console.WriteLine("Resource: " + resource);
-
         if (resource == "messages")
         {
             var data = payload?["data"];
             var roomId = data?["roomId"]?.ToString();
             var messageId = data?["id"]?.ToString();
-            var senderId = data?["personId"]?.ToString(); // 取得發送者ID
+            var senderId = data?["personId"]?.ToString();
 
-            Console.WriteLine($"RoomId: {roomId}, MessageId: {messageId}, SenderId: {senderId}");
-
-            // 檢查是否來自 Bot 發送的訊息，避免回覆自己的訊息
-            if (senderId == botPersonId)
-            {
-                Console.WriteLine("Message is from the bot itself. Ignoring.");
-                return Results.Ok();
-            }
+            if (senderId == botPersonId) return Results.Ok();
 
             if (!string.IsNullOrEmpty(roomId) && !string.IsNullOrEmpty(messageId))
             {
-                // 取得使用者原始訊息
                 var userMsg = await GetWebexMessage(botToken!, messageId);
-
                 if (!string.IsNullOrEmpty(userMsg))
                 {
-                    Console.WriteLine($"Sending to Gemini: {userMsg}");  // 在發送訊息給 Gemini 之前打印出訊息
                     var reply = await gemini.GenerateAsync(userMsg);
-                    Console.WriteLine($"Received from Gemini: {reply}");  // 打印從 Gemini 收到的回應
                     await SendWebexMessage(botToken!, roomId, reply);
                 }
-                else
-                {
-                    Console.WriteLine("No message found for messageId: " + messageId);
-                }
             }
-        }
-        else
-        {
-            Console.WriteLine("Not a message resource.");
         }
 
         return Results.Ok();
@@ -111,59 +72,30 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
     catch (Exception ex)
     {
         Console.WriteLine("Error: " + ex.Message);
-        // 使用 Results.Problem() 返回錯誤結果
         return Results.Problem("Internal Server Error", statusCode: 500);
     }
 });
 
 app.Run();
 
-// 簽名驗證
-static bool VerifySignature(byte[] body, string secret, string signature)
-{
-    using var hmac = new HMACSHA1(Encoding.UTF8.GetBytes(secret));
-    var computed = hmac.ComputeHash(body);
-    var computedHex = BitConverter.ToString(computed).Replace("-", "").ToLowerInvariant();
-
-    // 輸出計算出來的簽名與收到的簽名
-    Console.WriteLine($"Computed Signature: {computedHex}");
-    Console.WriteLine($"Received Signature: {signature}");
-
-    return computedHex == signature.ToLowerInvariant();
-}
-
-// 取得 Webex 訊息
+// Webex API
 static async Task<string?> GetWebexMessage(string botToken, string messageId)
 {
     using var client = new HttpClient();
     client.DefaultRequestHeaders.Authorization = new("Bearer", botToken);
     var resp = await client.GetAsync($"https://webexapis.com/v1/messages/{messageId}");
-    if (!resp.IsSuccessStatusCode)
-    {
-        Console.WriteLine($"Error getting message: {resp.StatusCode}");
-        return null;
-    }
+    if (!resp.IsSuccessStatusCode) return null;
     var json = await resp.Content.ReadAsStringAsync();
-    Console.WriteLine("Message response: " + json);
     var node = JsonNode.Parse(json);
     return node?["text"]?.ToString();
 }
 
-// 發送訊息到 Webex
 static async Task SendWebexMessage(string botToken, string roomId, string text)
 {
     using var client = new HttpClient();
     client.DefaultRequestHeaders.Authorization = new("Bearer", botToken);
     var payload = new { roomId = roomId, text = text };
-    var resp = await client.PostAsJsonAsync("https://webexapis.com/v1/messages", payload);
-    if (!resp.IsSuccessStatusCode)
-    {
-        Console.WriteLine($"Failed to send message: {resp.StatusCode}");
-    }
-    else
-    {
-        Console.WriteLine($"Message sent successfully to room: {roomId}");
-    }
+    await client.PostAsJsonAsync("https://webexapis.com/v1/messages", payload);
 }
 
 static async Task<string> GetBotPersonId(string botToken)
@@ -171,13 +103,6 @@ static async Task<string> GetBotPersonId(string botToken)
     using var client = new HttpClient();
     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", botToken);
     var resp = await client.GetAsync("https://webexapis.com/v1/people/me");
-
-    if (!resp.IsSuccessStatusCode)
-    {
-        Console.WriteLine($"Error getting bot personId: {resp.StatusCode}");
-        return string.Empty;
-    }
-
     var json = await resp.Content.ReadAsStringAsync();
     var node = JsonNode.Parse(json);
     return node?["id"]?.ToString() ?? string.Empty;
