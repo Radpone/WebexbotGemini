@@ -17,6 +17,27 @@ public class GeminiService
 
     public async Task<string> GenerateAsync(string prompt)
     {
+        return await GenerateContentAsync(new object[] { new { text = prompt } });
+    }
+
+    public async Task<string> GenerateFromAudioAsync(byte[] audio, string mimeType, string? context)
+    {
+        var parts = new List<object>
+        {
+            new { text = "請將這段語音辨識並轉寫為繁體中文；若有附帶文字，請一併參考。" },
+            new { inline_data = new { mime_type = mimeType, data = Convert.ToBase64String(audio) } }
+        };
+
+        if (!string.IsNullOrWhiteSpace(context))
+        {
+            parts.Add(new { text = $"附帶文字：{context}" });
+        }
+
+        return await GenerateContentAsync(parts.ToArray());
+    }
+
+    private async Task<string> GenerateContentAsync(object[] parts)
+    {
         try
         {
             var body = new
@@ -24,7 +45,7 @@ public class GeminiService
                 model = Model,
                 contents = new[]
                 {
-                    new { parts = new[] { new { text = prompt } } }
+                    new { parts }
                 }
             };
 
