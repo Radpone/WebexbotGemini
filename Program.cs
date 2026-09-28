@@ -44,8 +44,10 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
         req.Body.Position = 0;
 
         var signature = req.Headers["X-Spark-Signature"].ToString();
+        Console.WriteLine($"Webhook received. BodyLength={bodyBytes.Length}, SignaturePresent={!string.IsNullOrWhiteSpace(signature)}");
         if (!IsValidWebhookSignature(bodyBytes, signature, webhookSecret))
         {
+            Console.WriteLine("Webhook rejected: X-Spark-Signature validation failed. Check the webhook secret configured in Webex and Render.");
             return Results.Unauthorized();
         }
 
@@ -53,6 +55,8 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
         var payload = JsonNode.Parse(json);
 
         var resource = payload?["resource"]?.ToString();
+        var eventType = payload?["event"]?.ToString();
+        Console.WriteLine($"Webhook accepted. Resource={resource ?? "unknown"}, Event={eventType ?? "unknown"}");
         if (resource == "messages")
         {
             var data = payload?["data"];
@@ -60,19 +64,28 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
             var messageId = data?["id"]?.ToString();
             var senderId = data?["personId"]?.ToString();
 
-            if (senderId == botPersonId) return Results.Ok();
+            if (senderId == botPersonId)
+            {
+                Console.WriteLine("Message event ignored: sender is this bot.");
+                return Results.Ok();
+            }
 
             if (!string.IsNullOrEmpty(roomId) && !string.IsNullOrEmpty(messageId))
             {
+                Console.WriteLine("Message event received; retrieving message content.");
                 var message = await GetWebexMessage(botToken, messageId);
                 if (!string.IsNullOrEmpty(message.Text) || message.Audio is not null)
                 {
+                    Console.WriteLine($"Message content retrieved. HasText={!string.IsNullOrEmpty(message.Text)}, HasAudio={message.Audio is not null}");
                     var reply = message.Audio is not null
                         ? await gemini.GenerateFromAudioAsync(message.Audio, message.MimeType!, message.Text)
                         : await gemini.GenerateAsync(message.Text!);
                     await SendWebexMessage(botToken, roomId, reply);
+                    Console.WriteLine("Reply sent to Webex.");
                 }
+                else Console.WriteLine("Message had no supported text or audio content.");
             }
+            else Console.WriteLine("Message event missing roomId or message id.");
         }
 
         return Results.Ok();
