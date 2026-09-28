@@ -68,9 +68,9 @@ public class GeminiService
                 foreach (var candidate in candidates.EnumerateArray())
                 {
                     if (candidate.TryGetProperty("content", out var content) &&
-                        content.TryGetProperty("parts", out var parts))
+                        content.TryGetProperty("parts", out var responseParts))
                     {
-                        foreach (var part in parts.EnumerateArray())
+                        foreach (var part in responseParts.EnumerateArray())
                         {
                             if (part.TryGetProperty("text", out var text))
                             {
