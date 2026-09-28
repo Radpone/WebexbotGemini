@@ -18,6 +18,10 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "healthy"})
 
+    def test_head_root_probe_is_public(self) -> None:
+        response = self.client.head("/")
+        self.assertEqual(response.status_code, 200)
+
     def test_dashboard_requires_authentication(self) -> None:
         with patch.object(app, "DASHBOARD_PASSWORD", "test-dashboard-password"):
             response = self.client.get("/")

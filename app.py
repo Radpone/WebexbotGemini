@@ -236,6 +236,11 @@ async def dashboard(_: None = Depends(require_dashboard_auth)) -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.head("/")
+async def dashboard_probe() -> Response:
+    return Response(status_code=200)
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "healthy"}
