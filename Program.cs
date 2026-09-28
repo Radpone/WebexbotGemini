@@ -6,17 +6,17 @@ using System.Net.Http.Headers;
 
 var builder = WebApplication.CreateBuilder(args);
 
-string? webhookSecret = Environment.GetEnvironmentVariable("WEBEX_SECRET");
-string? botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN");
-string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
+string webhookSecret = Environment.GetEnvironmentVariable("WEBEX_WEBHOOK_SECRET")
+    ?? Environment.GetEnvironmentVariable("WEBEX_SECRET")
+    ?? throw new InvalidOperationException("Missing WEBEX_WEBHOOK_SECRET environment variable.");
+string botToken = Environment.GetEnvironmentVariable("WEBEX_BOT_TOKEN")
+    ?? throw new InvalidOperationException("Missing WEBEX_BOT_TOKEN environment variable.");
+string googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY")
+    ?? throw new InvalidOperationException("Missing GOOGLE_API_KEY environment variable.");
 
 // 註冊 GeminiService
 builder.Services.AddSingleton<GeminiService>(sp =>
 {
-    if (string.IsNullOrEmpty(googleApiKey))
-    {
-        throw new InvalidOperationException("Missing GOOGLE_API_KEY environment variable.");
-    }
     return new GeminiService(googleApiKey);
 });
 
@@ -30,7 +30,7 @@ app.Urls.Add($"http://0.0.0.0:{port}");
 app.MapGet("/health", () => Results.Ok("Service is healthy!"));
 
 // 取得 Bot 自己的 personId
-string botPersonId = await GetBotPersonId(botToken!);
+string botPersonId = await GetBotPersonId(botToken);
 
 // Webhook 路由
 app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
@@ -42,6 +42,12 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
         await req.Body.CopyToAsync(ms);
         var bodyBytes = ms.ToArray();
         req.Body.Position = 0;
+
+        var signature = req.Headers["X-Spark-Signature"].ToString();
+        if (!IsValidWebhookSignature(bodyBytes, signature, webhookSecret))
+        {
+            return Results.Unauthorized();
+        }
 
         var json = Encoding.UTF8.GetString(bodyBytes);
         var payload = JsonNode.Parse(json);
@@ -58,11 +64,11 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
 
             if (!string.IsNullOrEmpty(roomId) && !string.IsNullOrEmpty(messageId))
             {
-                var userMsg = await GetWebexMessage(botToken!, messageId);
+                var userMsg = await GetWebexMessage(botToken, messageId);
                 if (!string.IsNullOrEmpty(userMsg))
                 {
                     var reply = await gemini.GenerateAsync(userMsg);
-                    await SendWebexMessage(botToken!, roomId, reply);
+                    await SendWebexMessage(botToken, roomId, reply);
                 }
             }
         }
@@ -106,4 +112,24 @@ static async Task<string> GetBotPersonId(string botToken)
     var json = await resp.Content.ReadAsStringAsync();
     var node = JsonNode.Parse(json);
     return node?["id"]?.ToString() ?? string.Empty;
+}
+
+static bool IsValidWebhookSignature(byte[] body, string signature, string secret)
+{
+    if (string.IsNullOrWhiteSpace(signature)) return false;
+
+    byte[] suppliedSignature;
+    try
+    {
+        suppliedSignature = Convert.FromHexString(signature);
+    }
+    catch (FormatException)
+    {
+        return false;
+    }
+
+    using var hmac = new HMACSHA1(Encoding.UTF8.GetBytes(secret));
+    var expectedSignature = hmac.ComputeHash(body);
+    return suppliedSignature.Length == expectedSignature.Length &&
+        CryptographicOperations.FixedTimeEquals(suppliedSignature, expectedSignature);
 }
