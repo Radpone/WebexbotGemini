@@ -64,10 +64,12 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
 
             if (!string.IsNullOrEmpty(roomId) && !string.IsNullOrEmpty(messageId))
             {
-                var userMsg = await GetWebexMessage(botToken, messageId);
-                if (!string.IsNullOrEmpty(userMsg))
+                var message = await GetWebexMessage(botToken, messageId);
+                if (!string.IsNullOrEmpty(message.Text) || message.Audio is not null)
                 {
-                    var reply = await gemini.GenerateAsync(userMsg);
+                    var reply = message.Audio is not null
+                        ? await gemini.GenerateFromAudioAsync(message.Audio, message.MimeType!, message.Text)
+                        : await gemini.GenerateAsync(message.Text!);
                     await SendWebexMessage(botToken, roomId, reply);
                 }
             }
@@ -85,15 +87,49 @@ app.MapPost("/webhook", async (HttpRequest req, GeminiService gemini) =>
 app.Run();
 
 // Webex API
-static async Task<string?> GetWebexMessage(string botToken, string messageId)
+static async Task<(string? Text, byte[]? Audio, string? MimeType)> GetWebexMessage(string botToken, string messageId)
 {
     using var client = new HttpClient();
     client.DefaultRequestHeaders.Authorization = new("Bearer", botToken);
     var resp = await client.GetAsync($"https://webexapis.com/v1/messages/{messageId}");
-    if (!resp.IsSuccessStatusCode) return null;
+    if (!resp.IsSuccessStatusCode) return (null, null, null);
     var json = await resp.Content.ReadAsStringAsync();
     var node = JsonNode.Parse(json);
-    return node?["text"]?.ToString();
+    var text = node?["text"]?.ToString();
+
+    if (node?["files"] is JsonArray files)
+    {
+        foreach (var file in files)
+        {
+            var fileUrl = file?.ToString();
+            if (string.IsNullOrEmpty(fileUrl)) continue;
+
+            var audioResponse = await client.GetAsync(fileUrl);
+            if (!audioResponse.IsSuccessStatusCode) continue;
+
+            var contentType = audioResponse.Content.Headers.ContentType?.MediaType;
+            var extension = Path.GetExtension(new Uri(fileUrl).AbsolutePath).ToLowerInvariant();
+            var mimeType = contentType is null or "application/octet-stream"
+                ? extension switch
+                {
+                    ".m4a" => "audio/mp4",
+                    ".mp3" => "audio/mpeg",
+                    ".ogg" => "audio/ogg",
+                    ".wav" => "audio/wav",
+                    ".webm" => "audio/webm",
+                    ".aac" => "audio/aac",
+                    _ => contentType
+                }
+                : contentType;
+
+            if (mimeType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return (text, await audioResponse.Content.ReadAsByteArrayAsync(), mimeType);
+            }
+        }
+    }
+
+    return (text, null, null);
 }
 
 static async Task SendWebexMessage(string botToken, string roomId, string text)
