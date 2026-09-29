@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 WEBEX_API = "https://webexapis.com/v1"
 GEMINI_API = "https://generativelanguage.googleapis.com/v1beta"
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
 WEBEX_SECRET = (
     os.getenv("WEBEX_WEBHOOK_SECRET") or os.getenv("WEBEX_SECRET") or ""
 ).strip()
