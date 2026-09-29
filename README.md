@@ -22,7 +22,7 @@ Open `http://localhost:8000`. The dashboard uses HTTP Basic Auth with username `
 ## Deploy to Render from GitHub
 
 1. Push this repository to GitHub.
-2. In Render, create a **Web Service** connected to the repository and choose **Docker** runtime. Render uses the repository's `Dockerfile` to run the Python app.
+2. In Render, create a **Web Service** connected to the repository and choose the **Python** runtime. Set the build command to `pip install -r requirements.txt` and the start command to `uvicorn app:app --host 0.0.0.0 --port $PORT`.
 3. Add these environment variables in the Render service settings:
 	- `WEBEX_BOT_TOKEN`: Webex bot access token.
 	- `WEBEX_WEBHOOK_SECRET`: the exact secret configured on the Webex webhook.
@@ -50,4 +50,4 @@ The dashboard and its management APIs require HTTP Basic Auth. Keep `DASHBOARD_P
 python -m unittest discover -s tests
 ```
 
-The legacy C# files remain in the repository for reference; the Docker deployment now starts `app.py` and does not build the .NET project.
+The legacy C# files remain in the repository for reference; the Python service runs independently and does not build the .NET project.
