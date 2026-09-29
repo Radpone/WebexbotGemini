@@ -216,12 +216,12 @@ async def webhook(request: Request) -> dict[str, bool]:
         record_event("Message ignored", "Missing message or room ID", "warning")
         return {"ok": True}
 
-    own_id = await get_bot_person_id()
-    if own_id and data.get("personId") == own_id:
-        record_event("Message ignored", "Sender is this bot", "info")
-        return {"ok": True}
-
     try:
+        own_id = await get_bot_person_id()
+        if own_id and data.get("personId") == own_id:
+            record_event("Message ignored", "Sender is this bot", "info")
+            return {"ok": True}
+
         text = (await get_webex_message(message_id) or "").strip()
         if text:
             reply = await gemini_text(text)
@@ -231,11 +231,26 @@ async def webhook(request: Request) -> dict[str, bool]:
             return {"ok": True}
         await send_webex_message(room_id, reply)
         record_event("Reply sent", "Webex message delivered", "success")
-    except httpx.HTTPError as exc:
-        record_event("Message failed", f"External API request failed: {type(exc).__name__}", "error")
-        raise HTTPException(status_code=502, detail="A Webex or Gemini request failed.") from exc
-    except HTTPException as exc:
-        record_event("Message failed", exc.detail, "error")
-        raise
+    except Exception as exc:
+        if isinstance(exc, HTTPException):
+            failure_detail = str(exc.detail)
+        else:
+            failure_detail = f"External request or processing failed: {type(exc).__name__}"
+        if not isinstance(exc, (HTTPException, httpx.HTTPError)):
+            logger.exception("Unexpected webhook processing failure.")
+        record_event("Message failed", failure_detail, "error")
+        try:
+            await send_webex_message(room_id, "抱歉，目前無法處理這則訊息，請稍後再試。")
+        except Exception as send_exc:
+            record_event(
+                "Error reply failed",
+                f"Could not send failure notice: {type(send_exc).__name__}",
+                "error",
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="Could not send an error reply to Webex.",
+            ) from send_exc
+        record_event("Error reply sent", "Failure notice delivered to Webex", "warning")
 
     return {"ok": True}
