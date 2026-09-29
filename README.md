@@ -1,6 +1,6 @@
 # Relay | Webex + Gemini
 
-Python FastAPI service for the Webex bot, with a protected operations dashboard, webhook diagnostics, Gemini text/audio understanding, and a Gemini speech preview.
+Python FastAPI service for text-based Webex bot replies, with a protected operations dashboard, webhook diagnostics, and Gemini text generation. Audio-only messages and text-to-speech are not supported.
 
 ## Run locally
 
@@ -29,7 +29,6 @@ Open `http://localhost:8000`. The dashboard uses HTTP Basic Auth with username `
 	- `GOOGLE_API_KEY`: Google AI Studio API key.
 	- `DASHBOARD_PASSWORD`: a long, unique password for the dashboard.
 	- `GEMINI_MODEL` (optional): defaults to `gemini-3.8-flash`.
-	- `GEMINI_TTS_MODEL` (optional): defaults to `gemini-3.8-flash-tts`.
 4. Set the Webex webhook target URL to `https://<your-render-service>.onrender.com/webhook`, with resource `messages`, event `created`, and the matching webhook secret.
 5. Open `https://<your-render-service>.onrender.com` and sign in as `admin` with the dashboard password.
 
@@ -40,7 +39,7 @@ Render redeploys automatically when new commits are pushed to the connected bran
 - Service readiness and configured/not-configured indicators; secret values are never exposed.
 - Recent webhook events and signature rejection reasons.
 - A Gemini API connection test.
-- A text-to-speech preview with an audio player.
+- A Gemini text-generation connection test.
 
 The dashboard and its management APIs require HTTP Basic Auth. Keep `DASHBOARD_PASSWORD` private. `/health` and `/webhook` remain public for Render and Webex.
 

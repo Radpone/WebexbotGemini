@@ -1,4 +1,3 @@
-import base64
 import hashlib
 import hmac
 import unittest
@@ -51,14 +50,6 @@ class ServiceTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"ok": True})
-
-    def test_generated_audio_decodes_from_interaction_response(self) -> None:
-        audio = b"wav test data"
-        payload = {
-            "steps": [{"content": [{"type": "audio", "data": base64.b64encode(audio).decode()}]}]
-        }
-        self.assertEqual(app.extract_generated_audio(payload), audio)
-
 
 if __name__ == "__main__":
     unittest.main()

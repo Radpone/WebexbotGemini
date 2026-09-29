@@ -86,45 +86,6 @@ document.querySelector("#test-gemini").addEventListener("click", async (event) =
   }
 });
 
-document.querySelector("#generate-speech").addEventListener("click", async (event) => {
-  const button = event.currentTarget;
-  const result = document.querySelector("#speech-result");
-  const text = document.querySelector("#speech-text").value.trim();
-  const player = document.querySelector("#speech-player");
-  if (!text) {
-    result.className = "test-result error";
-    result.textContent = "Enter a short script first.";
-    return;
-  }
-  button.disabled = true;
-  result.className = "test-result";
-  result.textContent = "Generating WAV…";
-  try {
-    const response = await fetch("/api/speech", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, voice: document.querySelector("#speech-voice").value }),
-    });
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.detail || "Speech generation failed.");
-    }
-    const audioUrl = URL.createObjectURL(await response.blob());
-    if (player.dataset.url) URL.revokeObjectURL(player.dataset.url);
-    player.src = audioUrl;
-    player.dataset.url = audioUrl;
-    player.hidden = false;
-    await player.play();
-    result.textContent = "Generated and playing.";
-    refreshDashboard();
-  } catch (error) {
-    result.className = "test-result error";
-    result.textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-});
-
 document.querySelector("#refresh-events").addEventListener("click", refreshDashboard);
 document.querySelector("#footer-time").textContent = `${new Date().toISOString().slice(11, 19)} UTC`;
 refreshDashboard();

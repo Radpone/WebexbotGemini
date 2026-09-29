@@ -1,4 +1,3 @@
-import base64
 import hashlib
 import hmac
 import json
@@ -9,22 +8,16 @@ from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
-
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
-
-
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 WEBEX_API = "https://webexapis.com/v1"
 GEMINI_API = "https://generativelanguage.googleapis.com/v1beta"
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-TTS_MODEL = os.getenv("GEMINI_TTS_MODEL", "gemini-3.8-flash-tts")
 WEBEX_SECRET = (
     os.getenv("WEBEX_WEBHOOK_SECRET") or os.getenv("WEBEX_SECRET") or ""
 ).strip()
@@ -83,17 +76,6 @@ def extract_gemini_text(payload: dict[str, Any]) -> str:
     return ""
 
 
-def extract_generated_audio(payload: dict[str, Any]) -> bytes:
-    for step in payload.get("steps", []):
-        for item in step.get("content", []):
-            if item.get("data") and item.get("type") in {None, "audio"}:
-                return base64.b64decode(item["data"])
-    output_audio = payload.get("output_audio", {})
-    if output_audio.get("data"):
-        return base64.b64decode(output_audio["data"])
-    raise ValueError("Gemini response did not contain audio data.")
-
-
 async def gemini_generate(parts: list[dict[str, Any]]) -> str:
     if not GOOGLE_API_KEY:
         raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not configured.")
@@ -117,85 +99,12 @@ async def gemini_text(prompt: str) -> str:
     return await gemini_generate([{"text": prompt}])
 
 
-async def gemini_transcribe(audio: bytes, mime_type: str, context: str | None) -> str:
-    if len(audio) > 15 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Audio file exceeds the inline upload limit.")
-    parts: list[dict[str, Any]] = [
-        {"text": "請辨識這段語音，先以繁體中文提供逐字稿，再回答語音中的問題。"},
-        {
-            "inline_data": {
-                "mime_type": mime_type,
-                "data": base64.b64encode(audio).decode("ascii"),
-            }
-        },
-    ]
-    if context:
-        parts.append({"text": f"訊息附帶文字：{context}"})
-    return await gemini_generate(parts)
-
-
-async def gemini_speech(text: str, voice: str) -> bytes:
-    if not GOOGLE_API_KEY:
-        raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not configured.")
-    payload = {
-        "model": TTS_MODEL,
-        "input": [
-            {
-                "type": "user_input",
-                "content": [{"type": "text", "text": text}],
-            }
-        ],
-        "response_format": {"type": "audio"},
-        "generation_config": {"speech_config": [{"voice": voice}]},
-    }
-    async with httpx.AsyncClient(timeout=90) as client:
-        response = await client.post(
-            f"{GEMINI_API}/interactions",
-            headers={"x-goog-api-key": GOOGLE_API_KEY},
-            json=payload,
-        )
-    if response.is_error:
-        logger.error("Gemini speech request failed with HTTP %s.", response.status_code)
-        raise HTTPException(status_code=502, detail="Gemini speech request failed.")
-    try:
-        return extract_generated_audio(response.json())
-    except (ValueError, KeyError, TypeError) as exc:
-        logger.exception("Could not read Gemini speech response.")
-        raise HTTPException(status_code=502, detail="Gemini returned no audio.") from exc
-
-
-async def get_webex_message(message_id: str) -> tuple[str | None, bytes | None, str | None]:
+async def get_webex_message(message_id: str) -> str | None:
     headers = {"Authorization": f"Bearer {WEBEX_TOKEN}"}
-    async with httpx.AsyncClient(timeout=45, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=45) as client:
         response = await client.get(f"{WEBEX_API}/messages/{message_id}", headers=headers)
         response.raise_for_status()
-        message = response.json()
-        text = message.get("text")
-
-        for file_url in message.get("files", []):
-            parsed = urlparse(file_url)
-            if parsed.scheme != "https" or parsed.hostname not in {
-                "webexapis.com",
-                "webexcontent.com",
-            }:
-                continue
-            file_response = await client.get(file_url, headers=headers)
-            if file_response.is_error:
-                continue
-            content_type = file_response.headers.get("content-type", "").split(";")[0]
-            extension = Path(parsed.path).suffix.lower()
-            if content_type == "application/octet-stream":
-                content_type = {
-                    ".m4a": "audio/mp4",
-                    ".mp3": "audio/mpeg",
-                    ".ogg": "audio/ogg",
-                    ".wav": "audio/wav",
-                    ".webm": "audio/webm",
-                    ".aac": "audio/aac",
-                }.get(extension, content_type)
-            if content_type.startswith("audio/"):
-                return text, file_response.content, content_type
-    return text, None, None
+        return response.json().get("text")
 
 
 async def get_bot_person_id() -> str | None:
@@ -226,11 +135,6 @@ async def send_webex_message(room_id: str, text: str) -> None:
         response.raise_for_status()
 
 
-class SpeechRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=2500)
-    voice: str = Field(default="Kore", pattern="^(Kore|Puck|Charon|Aoede)$")
-
-
 @app.get("/")
 async def dashboard(_: None = Depends(require_dashboard_auth)) -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
@@ -258,7 +162,7 @@ async def status(_: None = Depends(require_dashboard_auth)) -> dict[str, Any]:
         "uptimeSeconds": int(time.time() - started_at),
         "webhookEvents": len(events),
         "settings": settings,
-        "models": {"chat": GEMINI_MODEL, "speech": TTS_MODEL},
+        "models": {"chat": GEMINI_MODEL},
     }
 
 
@@ -276,17 +180,6 @@ async def check_gemini(_: None = Depends(require_dashboard_auth)) -> dict[str, s
         raise
     record_event("Gemini check", "Gemini API responded successfully.", "success")
     return {"status": "connected", "reply": result}
-
-
-@app.post("/api/speech")
-async def speech(request: SpeechRequest, _: None = Depends(require_dashboard_auth)) -> Response:
-    audio = await gemini_speech(request.text, request.voice)
-    record_event("Speech generated", f"Voice: {request.voice}", "success")
-    return Response(
-        content=audio,
-        media_type="audio/wav",
-        headers={"Content-Disposition": "inline; filename=gemini-speech.wav"},
-    )
 
 
 @app.post("/webhook")
@@ -329,15 +222,12 @@ async def webhook(request: Request) -> dict[str, bool]:
         return {"ok": True}
 
     try:
-        text, audio, mime_type = await get_webex_message(message_id)
-        if audio is not None and mime_type:
-            reply = await gemini_transcribe(audio, mime_type, text)
-            record_event("Audio processed", "Gemini transcribed an audio message", "success")
-        elif text:
+        text = (await get_webex_message(message_id) or "").strip()
+        if text:
             reply = await gemini_text(text)
             record_event("Text processed", "Gemini generated a reply", "success")
         else:
-            record_event("Message ignored", "No supported text or audio attachment", "warning")
+            record_event("Message ignored", "No text content", "warning")
             return {"ok": True}
         await send_webex_message(room_id, reply)
         record_event("Reply sent", "Webex message delivered", "success")
