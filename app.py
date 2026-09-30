@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import hmac
 import json
@@ -18,6 +19,7 @@ STATIC_DIR = ROOT / "static"
 WEBEX_API = "https://webexapis.com/v1"
 GEMINI_API = "https://generativelanguage.googleapis.com/v1beta"
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_MAX_ATTEMPTS = 5
 WEBEX_SECRET = (
     os.getenv("WEBEX_WEBHOOK_SECRET") or os.getenv("WEBEX_SECRET") or ""
 ).strip()
@@ -97,11 +99,22 @@ async def gemini_generate(parts: list[dict[str, Any]]) -> str:
         raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not configured.")
     url = f"{GEMINI_API}/models/{GEMINI_MODEL}:generateContent"
     async with httpx.AsyncClient(timeout=90) as client:
-        response = await client.post(
-            url,
-            headers={"x-goog-api-key": GOOGLE_API_KEY},
-            json={"contents": [{"parts": parts}]},
-        )
+        for attempt in range(GEMINI_MAX_ATTEMPTS):
+            response = await client.post(
+                url,
+                headers={"x-goog-api-key": GOOGLE_API_KEY},
+                json={"contents": [{"parts": parts}]},
+            )
+            if response.status_code != 503 or attempt == GEMINI_MAX_ATTEMPTS - 1:
+                break
+            delay = 2**attempt
+            logger.warning(
+                "Gemini returned HTTP 503; retrying in %s seconds (%s/%s).",
+                delay,
+                attempt + 2,
+                GEMINI_MAX_ATTEMPTS,
+            )
+            await asyncio.sleep(delay)
     if response.is_error:
         detail = gemini_error_detail(response)
         logger.error(

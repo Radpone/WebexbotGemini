@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import hmac
 import unittest
@@ -30,6 +31,28 @@ class ServiceTests(unittest.TestCase):
             app.gemini_error_detail(response),
             "UNAVAILABLE: Model overloaded",
         )
+
+    def test_gemini_retries_503_then_returns_text(self) -> None:
+        client = AsyncMock()
+        client.__aenter__.return_value = client
+        client.__aexit__.return_value = False
+        client.post.side_effect = [
+            app.httpx.Response(503, json={"error": {"message": "overloaded"}}),
+            app.httpx.Response(
+                200,
+                json={"candidates": [{"content": {"parts": [{"text": "OK"}]}}]},
+            ),
+        ]
+        with (
+            patch.object(app, "GOOGLE_API_KEY", "test-google-key"),
+            patch.object(app.httpx, "AsyncClient", return_value=client),
+            patch.object(app.asyncio, "sleep", new_callable=AsyncMock) as sleep,
+        ):
+            result = asyncio.run(app.gemini_generate([{"text": "test"}]))
+
+        self.assertEqual(result, "OK")
+        self.assertEqual(client.post.await_count, 2)
+        sleep.assert_awaited_once_with(1)
 
     def test_dashboard_requires_authentication(self) -> None:
         with patch.object(app, "DASHBOARD_PASSWORD", "test-dashboard-password"):
