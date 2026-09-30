@@ -28,7 +28,7 @@ Open `http://localhost:8000`. The dashboard uses HTTP Basic Auth with username `
 	- `WEBEX_WEBHOOK_SECRET`: the exact secret configured on the Webex webhook.
 	- `GOOGLE_API_KEY`: Google AI Studio API key.
 	- `DASHBOARD_PASSWORD`: a long, unique password for the dashboard.
-	- `GEMINI_MODEL` (optional): defaults to `gemini-3.7-flash`.
+	- `GEMINI_MODEL` (optional): defaults to `gemini-3.8-flash`.
 4. Set the Webex webhook target URL to `https://<your-render-service>.onrender.com/webhook`, with resource `messages`, event `created`, and the matching webhook secret.
 5. Open `https://<your-render-service>.onrender.com` and sign in as `admin` with the dashboard password.
 
@@ -36,10 +36,8 @@ Render redeploys automatically when new commits are pushed to the connected bran
 
 ## Dashboard
 
-- Service readiness and configured/not-configured indicators; secret values are never exposed.
-- Recent webhook events and signature rejection reasons.
-- A Gemini API connection test.
-- A Gemini text-generation connection test.
+- Displays the Webex-to-Gemini-to-Webex text relay stages and whether their required settings are present.
+- Shows recent webhook, message-processing, and reply events; secret values are never exposed.
 
 The dashboard and its management APIs require HTTP Basic Auth. Keep `DASHBOARD_PASSWORD` private. `/health` and `/webhook` remain public for Render and Webex.
 

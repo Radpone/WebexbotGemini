@@ -21,6 +21,16 @@ class ServiceTests(unittest.TestCase):
         response = self.client.head("/")
         self.assertEqual(response.status_code, 200)
 
+    def test_gemini_error_detail_extracts_provider_message(self) -> None:
+        response = app.httpx.Response(
+            503,
+            json={"error": {"status": "UNAVAILABLE", "message": "Model overloaded"}},
+        )
+        self.assertEqual(
+            app.gemini_error_detail(response),
+            "UNAVAILABLE: Model overloaded",
+        )
+
     def test_dashboard_requires_authentication(self) -> None:
         with patch.object(app, "DASHBOARD_PASSWORD", "test-dashboard-password"):
             response = self.client.get("/")

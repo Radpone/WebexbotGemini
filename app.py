@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 WEBEX_API = "https://webexapis.com/v1"
 GEMINI_API = "https://generativelanguage.googleapis.com/v1beta"
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 WEBEX_SECRET = (
     os.getenv("WEBEX_WEBHOOK_SECRET") or os.getenv("WEBEX_SECRET") or ""
 ).strip()
@@ -76,6 +76,22 @@ def extract_gemini_text(payload: dict[str, Any]) -> str:
     return ""
 
 
+def gemini_error_detail(response: httpx.Response) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return ""
+    status = error.get("status")
+    message = error.get("message")
+    detail = ": ".join(str(value) for value in (status, message) if value)
+    return detail[:500]
+
+
 async def gemini_generate(parts: list[dict[str, Any]]) -> str:
     if not GOOGLE_API_KEY:
         raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not configured.")
@@ -87,7 +103,12 @@ async def gemini_generate(parts: list[dict[str, Any]]) -> str:
             json={"contents": [{"parts": parts}]},
         )
     if response.is_error:
-        logger.error("Gemini text request failed with HTTP %s.", response.status_code)
+        detail = gemini_error_detail(response)
+        logger.error(
+            "Gemini text request failed with HTTP %s%s",
+            response.status_code,
+            f": {detail}" if detail else ".",
+        )
         raise HTTPException(status_code=502, detail="Gemini text request failed.")
     text = extract_gemini_text(response.json())
     if not text:
@@ -169,17 +190,6 @@ async def status(_: None = Depends(require_dashboard_auth)) -> dict[str, Any]:
 @app.get("/api/events")
 async def recent_events(_: None = Depends(require_dashboard_auth)) -> list[dict[str, str]]:
     return list(events)
-
-
-@app.post("/api/gemini/check")
-async def check_gemini(_: None = Depends(require_dashboard_auth)) -> dict[str, str]:
-    try:
-        result = await gemini_text("Reply with exactly: OK")
-    except HTTPException:
-        record_event("Gemini check", "Connection test failed; inspect service logs.", "error")
-        raise
-    record_event("Gemini check", "Gemini API responded successfully.", "success")
-    return {"status": "connected", "reply": result}
 
 
 @app.post("/webhook")
