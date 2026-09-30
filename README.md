@@ -28,7 +28,7 @@ Open `http://localhost:8000`. The dashboard uses HTTP Basic Auth with username `
 	- `WEBEX_WEBHOOK_SECRET`: the exact secret configured on the Webex webhook.
 	- `GOOGLE_API_KEY`: Google AI Studio API key.
 	- `DASHBOARD_PASSWORD`: a long, unique password for the dashboard.
-	- `GEMINI_MODEL` (optional): defaults to `gemini-3.8-flash`.
+	- `GEMINI_MODEL` (optional): defaults to `gemini-3.6-flash`.
 4. Set the Webex webhook target URL to `https://<your-render-service>.onrender.com/webhook`, with resource `messages`, event `created`, and the matching webhook secret.
 5. Open `https://<your-render-service>.onrender.com` and sign in as `admin` with the dashboard password.
 
