@@ -157,12 +157,12 @@ async def get_bot_person_id() -> str | None:
     return bot_person_id
 
 
-async def send_webex_message(room_id: str, text: str) -> None:
+async def send_webex_message(person_id: str, text: str) -> None:
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
             f"{WEBEX_API}/messages",
             headers={"Authorization": f"Bearer {WEBEX_TOKEN}"},
-            json={"roomId": room_id, "text": text},
+            json={"toPersonId": person_id, "text": text},
         )
     if response.is_error:
         logger.error("Webex reply failed with HTTP %s.", response.status_code)
@@ -234,9 +234,9 @@ async def webhook(request: Request) -> dict[str, bool]:
 
     data = payload.get("data", {})
     message_id = data.get("id")
-    room_id = data.get("roomId")
-    if not message_id or not room_id:
-        record_event("Message ignored", "Missing message or room ID", "warning")
+    person_id = data.get("personId")
+    if not message_id or not person_id:
+        record_event("Message ignored", "Missing message or sender person ID", "warning")
         return {"ok": True}
 
     try:
@@ -252,7 +252,7 @@ async def webhook(request: Request) -> dict[str, bool]:
         else:
             record_event("Message ignored", "No text content", "warning")
             return {"ok": True}
-        await send_webex_message(room_id, reply)
+        await send_webex_message(person_id, reply)
         record_event("Reply sent", "Webex message delivered", "success")
     except Exception as exc:
         if isinstance(exc, HTTPException):
@@ -263,7 +263,7 @@ async def webhook(request: Request) -> dict[str, bool]:
             logger.exception("Unexpected webhook processing failure.")
         record_event("Message failed", failure_detail, "error")
         try:
-            await send_webex_message(room_id, "抱歉，目前無法處理這則訊息，請稍後再試。")
+            await send_webex_message(person_id, "抱歉，目前無法處理這則訊息，請稍後再試。")
         except Exception as send_exc:
             record_event(
                 "Error reply failed",

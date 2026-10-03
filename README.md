@@ -37,7 +37,7 @@ Render redeploys automatically when new commits are pushed to the connected bran
 ## Dashboard
 
 - Displays the Webex-to-Gemini-to-Webex text relay stages and whether their required settings are present.
-- Shows recent webhook, message-processing, and reply events; secret values are never exposed.
+- Shows recent webhook, message-processing, and reply events; secret values are never exposed. Replies are sent directly to the person who sent the original Webex message.
 
 The dashboard and its management APIs require HTTP Basic Auth. Keep `DASHBOARD_PASSWORD` private. `/health` and `/webhook` remain public for Render and Webex.
 
