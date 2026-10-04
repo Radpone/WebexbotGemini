@@ -18,6 +18,11 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "healthy"})
 
+    def test_head_health_probe_is_public(self) -> None:
+        response = self.client.head("/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"")
+
     def test_send_webex_message_uses_recipient_person_id(self) -> None:
         client = AsyncMock()
         client.__aenter__.return_value = client

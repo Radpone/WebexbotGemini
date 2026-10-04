@@ -184,6 +184,11 @@ async def health() -> dict[str, str]:
     return {"status": "healthy"}
 
 
+@app.head("/health")
+async def health_probe() -> Response:
+    return Response(status_code=200)
+
+
 @app.get("/api/status")
 async def status(_: None = Depends(require_dashboard_auth)) -> dict[str, Any]:
     settings = {
