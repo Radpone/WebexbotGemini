@@ -24,6 +24,7 @@ WEBEX_SECRET = (
     os.getenv("WEBEX_WEBHOOK_SECRET") or os.getenv("WEBEX_SECRET") or ""
 ).strip()
 WEBEX_TOKEN = os.getenv("WEBEX_BOT_TOKEN", "").strip()
+WEBEX_IGNORED_PERSON_ID = os.getenv("WEBEX_IGNORED_PERSON_ID", "").strip()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "").strip()
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "")
 
@@ -242,6 +243,10 @@ async def webhook(request: Request) -> dict[str, bool]:
     person_id = data.get("personId")
     if not message_id or not person_id:
         record_event("Message ignored", "Missing message or sender person ID", "warning")
+        return {"ok": True}
+
+    if WEBEX_IGNORED_PERSON_ID and person_id == WEBEX_IGNORED_PERSON_ID:
+        record_event("Message ignored", "Sender is the configured Webex user", "info")
         return {"ok": True}
 
     try:

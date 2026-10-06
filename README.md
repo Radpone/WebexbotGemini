@@ -25,6 +25,7 @@ Open `http://localhost:8000`. The dashboard uses HTTP Basic Auth with username `
 2. In Render, create a **Web Service** connected to the repository and choose the **Python** runtime. Set the build command to `pip install -r requirements.txt` and the start command to `uvicorn app:app --host 0.0.0.0 --port $PORT`.
 3. Add these environment variables in the Render service settings:
 	- `WEBEX_BOT_TOKEN`: Webex bot access token.
+	- `WEBEX_IGNORED_PERSON_ID` (optional): Webex person ID whose messages the bot should ignore, such as your own account's ID.
 	- `WEBEX_WEBHOOK_SECRET`: the exact secret configured on the Webex webhook.
 	- `GOOGLE_API_KEY`: Google AI Studio API key.
 	- `DASHBOARD_PASSWORD`: a long, unique password for the dashboard.
