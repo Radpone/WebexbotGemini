@@ -28,13 +28,36 @@ class ServiceTests(unittest.TestCase):
         client.__aenter__.return_value = client
         client.__aexit__.return_value = False
         client.post.return_value = app.httpx.Response(200)
-        with patch.object(app.httpx, "AsyncClient", return_value=client):
+        with (
+            patch.object(app, "WEBEX_TOKEN", "test-webex-bot-token"),
+            patch.object(app.httpx, "AsyncClient", return_value=client),
+        ):
             asyncio.run(app.send_webex_message("person-id", "Hello"))
 
         self.assertEqual(
             client.post.await_args.kwargs["json"],
             {"toPersonId": "person-id", "text": "Hello"},
         )
+        self.assertEqual(
+            client.post.await_args.kwargs["headers"],
+            {"Authorization": "Bearer test-webex-bot-token"},
+        )
+
+    def test_webex_auth_headers_reject_missing_bot_token(self) -> None:
+        with patch.object(app, "WEBEX_TOKEN", ""):
+            with self.assertRaises(app.HTTPException) as raised:
+                app.webex_auth_headers()
+
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertIn("WEBEX_BOT_TOKEN", raised.exception.detail)
+
+    def test_webex_auth_headers_reject_bearer_prefix_in_environment_value(self) -> None:
+        with patch.object(app, "WEBEX_TOKEN", "Bearer test-webex-bot-token"):
+            with self.assertRaises(app.HTTPException) as raised:
+                app.webex_auth_headers()
+
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertIn("without the Bearer prefix", raised.exception.detail)
 
     def test_head_root_probe_is_public(self) -> None:
         response = self.client.head("/")
@@ -138,6 +161,33 @@ class ServiceTests(unittest.TestCase):
             "person-id",
             "抱歉，目前無法處理這則訊息，請稍後再試。",
         )
+
+    def test_webhook_stops_if_webex_rejects_bot_token(self) -> None:
+        secret = "test-webhook-secret"
+        body = (
+            b'{"resource":"messages","event":"created",'
+            b'"data":{"id":"message-id","personId":"person-id"}}'
+        )
+        signature = hmac.new(secret.encode(), body, hashlib.sha1).hexdigest()
+        unauthorized = app.httpx.HTTPStatusError(
+            "Unauthorized",
+            request=app.httpx.Request("GET", "https://webexapis.com/v1/people/me"),
+            response=app.httpx.Response(401),
+        )
+        with (
+            patch.object(app, "WEBEX_SECRET", secret),
+            patch.object(app, "get_bot_person_id", new_callable=AsyncMock, side_effect=unauthorized),
+            patch.object(app, "send_webex_message", new_callable=AsyncMock) as send_message,
+        ):
+            response = self.client.post(
+                "/webhook",
+                content=body,
+                headers={"X-Spark-Signature": signature},
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertIn("WEBEX_BOT_TOKEN", response.json()["detail"])
+        send_message.assert_not_awaited()
 
     def test_webhook_replies_to_message_sender(self) -> None:
         secret = "test-webhook-secret"

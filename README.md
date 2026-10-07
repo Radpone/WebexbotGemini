@@ -10,7 +10,7 @@ Requires Python 3.11 or newer.
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-$env:WEBEX_BOT_TOKEN="your-webex-bot-token"
+$env:WEBEX_BOT_TOKEN="your-webex-bot-access-token"
 $env:WEBEX_WEBHOOK_SECRET="your-webex-webhook-secret"
 $env:GOOGLE_API_KEY="your-google-ai-api-key"
 $env:DASHBOARD_PASSWORD="choose-a-long-dashboard-password"
@@ -24,7 +24,7 @@ Open `http://localhost:8000`. The dashboard uses HTTP Basic Auth with username `
 1. Push this repository to GitHub.
 2. In Render, create a **Web Service** connected to the repository and choose the **Python** runtime. Set the build command to `pip install -r requirements.txt` and the start command to `uvicorn app:app --host 0.0.0.0 --port $PORT`.
 3. Add these environment variables in the Render service settings:
-	- `WEBEX_BOT_TOKEN`: Webex bot access token.
+	- `WEBEX_BOT_TOKEN`: Webex bot access token only; do not include the `Bearer ` prefix or use a person ID/personal account token.
 	- `WEBEX_IGNORED_PERSON_ID` (optional): Webex person ID whose messages the bot should ignore, such as your own account's ID.
 	- `WEBEX_WEBHOOK_SECRET`: the exact secret configured on the Webex webhook.
 	- `GOOGLE_API_KEY`: Google AI Studio API key.
@@ -38,7 +38,7 @@ Render redeploys automatically when new commits are pushed to the connected bran
 ## Dashboard
 
 - Displays the Webex-to-Gemini-to-Webex text relay stages and whether their required settings are present.
-- Shows recent webhook, message-processing, and reply events; secret values are never exposed. Replies are sent directly to the person who sent the original Webex message.
+- Shows recent webhook, message-processing, and reply events; secret values are never exposed. The service reads each incoming message, sends its text to Gemini, then sends Gemini's reply directly to that message's sender using their Webex person ID.
 - Render logs include the sender's email (or Webex person ID if the email is unavailable), the incoming message text, and Gemini's reply. Treat service logs as conversation data and restrict access accordingly.
 
 The dashboard and its management APIs require HTTP Basic Auth. Keep `DASHBOARD_PASSWORD` private. `/health` and `/webhook` remain public for Render and Webex.

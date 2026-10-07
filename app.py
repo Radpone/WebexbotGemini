@@ -134,27 +134,45 @@ async def gemini_text(prompt: str) -> str:
     return await gemini_generate([{"text": prompt}])
 
 
+def webex_auth_headers() -> dict[str, str]:
+    if not WEBEX_TOKEN:
+        raise HTTPException(status_code=503, detail="WEBEX_BOT_TOKEN is not configured.")
+    if WEBEX_TOKEN.lower().startswith("bearer "):
+        raise HTTPException(
+            status_code=503,
+            detail="WEBEX_BOT_TOKEN must contain the token only, without the Bearer prefix.",
+        )
+    return {"Authorization": f"Bearer {WEBEX_TOKEN}"}
+
+
 async def get_webex_message(message_id: str) -> dict[str, Any]:
-    headers = {"Authorization": f"Bearer {WEBEX_TOKEN}"}
     async with httpx.AsyncClient(timeout=45) as client:
-        response = await client.get(f"{WEBEX_API}/messages/{message_id}", headers=headers)
+        response = await client.get(
+            f"{WEBEX_API}/messages/{message_id}",
+            headers=webex_auth_headers(),
+        )
         response.raise_for_status()
         return response.json()
 
 
-async def get_bot_person_id() -> str | None:
+async def get_bot_person_id() -> str:
     global bot_person_id
-    if bot_person_id or not WEBEX_TOKEN:
+    if bot_person_id:
         return bot_person_id
     async with httpx.AsyncClient(timeout=20) as client:
         response = await client.get(
             f"{WEBEX_API}/people/me",
-            headers={"Authorization": f"Bearer {WEBEX_TOKEN}"},
+            headers=webex_auth_headers(),
         )
-    if response.is_error:
-        logger.error("Could not verify Webex bot identity: HTTP %s.", response.status_code)
-        return None
-    bot_person_id = response.json().get("id")
+        if response.status_code == 401:
+            logger.error(
+                "Webex rejected WEBEX_BOT_TOKEN while verifying the bot identity."
+            )
+        response.raise_for_status()
+    person_id = response.json().get("id")
+    if not person_id:
+        raise HTTPException(status_code=502, detail="Webex returned no bot person ID.")
+    bot_person_id = person_id
     return bot_person_id
 
 
@@ -162,7 +180,7 @@ async def send_webex_message(person_id: str, text: str) -> None:
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
             f"{WEBEX_API}/messages",
-            headers={"Authorization": f"Bearer {WEBEX_TOKEN}"},
+            headers=webex_auth_headers(),
             json={"toPersonId": person_id, "text": text},
         )
     if response.is_error:
@@ -278,6 +296,27 @@ async def webhook(request: Request) -> dict[str, bool]:
         await send_webex_message(person_id, reply)
         record_event("Reply sent", "Webex message delivered", "success")
     except Exception as exc:
+        if (
+            isinstance(exc, HTTPException)
+            and exc.status_code == 503
+            and "WEBEX_BOT_TOKEN" in str(exc.detail)
+        ):
+            record_event("Message failed", str(exc.detail), "error")
+            logger.error("%s", exc.detail)
+            raise
+        if (
+            isinstance(exc, httpx.HTTPStatusError)
+            and exc.response.status_code == 401
+        ):
+            failure_detail = "Webex rejected WEBEX_BOT_TOKEN (HTTP 401)"
+            record_event("Message failed", failure_detail, "error")
+            logger.error(
+                "Webex rejected WEBEX_BOT_TOKEN. Set a valid Webex bot access token."
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="Webex rejected WEBEX_BOT_TOKEN.",
+            ) from exc
         if isinstance(exc, HTTPException):
             failure_detail = str(exc.detail)
         else:
