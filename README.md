@@ -39,6 +39,7 @@ Render redeploys automatically when new commits are pushed to the connected bran
 
 - Displays the Webex-to-Gemini-to-Webex text relay stages and whether their required settings are present.
 - Shows recent webhook, message-processing, and reply events; secret values are never exposed. Replies are sent directly to the person who sent the original Webex message.
+- Render logs include the sender's email (or Webex person ID if the email is unavailable), the incoming message text, and Gemini's reply. Treat service logs as conversation data and restrict access accordingly.
 
 The dashboard and its management APIs require HTTP Basic Auth. Keep `DASHBOARD_PASSWORD` private. `/health` and `/webhook` remain public for Render and Webex.
 

@@ -134,12 +134,12 @@ async def gemini_text(prompt: str) -> str:
     return await gemini_generate([{"text": prompt}])
 
 
-async def get_webex_message(message_id: str) -> str | None:
+async def get_webex_message(message_id: str) -> dict[str, Any]:
     headers = {"Authorization": f"Bearer {WEBEX_TOKEN}"}
     async with httpx.AsyncClient(timeout=45) as client:
         response = await client.get(f"{WEBEX_API}/messages/{message_id}", headers=headers)
         response.raise_for_status()
-        return response.json().get("text")
+        return response.json()
 
 
 async def get_bot_person_id() -> str | None:
@@ -255,9 +255,22 @@ async def webhook(request: Request) -> dict[str, bool]:
             record_event("Message ignored", "Sender is this bot", "info")
             return {"ok": True}
 
-        text = (await get_webex_message(message_id) or "").strip()
+        message = await get_webex_message(message_id)
+        text = (message.get("text") or "").strip()
         if text:
+            sender = message.get("personEmail") or person_id
+            logger.info(
+                "Incoming Webex message: %s",
+                json.dumps(
+                    {"sender": sender, "message": text},
+                    ensure_ascii=False,
+                ),
+            )
             reply = await gemini_text(text)
+            logger.info(
+                "Gemini reply: %s",
+                json.dumps({"reply": reply}, ensure_ascii=False),
+            )
             record_event("Text processed", "Gemini generated a reply", "success")
         else:
             record_event("Message ignored", "No text content", "warning")

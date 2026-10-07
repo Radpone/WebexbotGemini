@@ -113,7 +113,12 @@ class ServiceTests(unittest.TestCase):
             patch.object(app, "WEBEX_SECRET", secret),
             patch.object(app, "WEBEX_IGNORED_PERSON_ID", ""),
             patch.object(app, "get_bot_person_id", new_callable=AsyncMock, return_value=None),
-            patch.object(app, "get_webex_message", new_callable=AsyncMock, return_value="hello"),
+            patch.object(
+                app,
+                "get_webex_message",
+                new_callable=AsyncMock,
+                return_value={"text": "hello"},
+            ),
             patch.object(
                 app,
                 "gemini_text",
@@ -145,9 +150,15 @@ class ServiceTests(unittest.TestCase):
             patch.object(app, "WEBEX_SECRET", secret),
             patch.object(app, "WEBEX_IGNORED_PERSON_ID", ""),
             patch.object(app, "get_bot_person_id", new_callable=AsyncMock, return_value=None),
-            patch.object(app, "get_webex_message", new_callable=AsyncMock, return_value="hello"),
+            patch.object(
+                app,
+                "get_webex_message",
+                new_callable=AsyncMock,
+                return_value={"text": "hello", "personEmail": "sender@example.com"},
+            ),
             patch.object(app, "gemini_text", new_callable=AsyncMock, return_value="Hi!"),
             patch.object(app, "send_webex_message", new_callable=AsyncMock) as send_message,
+            patch.object(app.logger, "info") as log_info,
         ):
             response = self.client.post(
                 "/webhook",
@@ -157,6 +168,11 @@ class ServiceTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         send_message.assert_awaited_once_with("person-id", "Hi!")
+        log_info.assert_any_call(
+            "Incoming Webex message: %s",
+            '{"sender": "sender@example.com", "message": "hello"}',
+        )
+        log_info.assert_any_call("Gemini reply: %s", '{"reply": "Hi!"}')
 
     def test_webhook_ignores_configured_user_messages(self) -> None:
         secret = "test-webhook-secret"
